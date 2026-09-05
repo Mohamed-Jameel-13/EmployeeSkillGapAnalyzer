@@ -84,6 +84,7 @@ public class HttpServerApp {
         router.post("/api/students", studentController::createStudent);
         router.get("/api/students/{id}", studentController::getStudentById);
         router.put("/api/students/{id}", studentController::updateStudent);
+        router.delete("/api/students/{id}", studentController::deleteStudent);
 
         // Student Skills
         router.get("/api/students/{id}/skills", studentSkillController::getSkills);

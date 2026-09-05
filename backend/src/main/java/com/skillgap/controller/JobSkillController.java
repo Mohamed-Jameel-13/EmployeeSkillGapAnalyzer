@@ -35,10 +35,11 @@ public class JobSkillController {
         }
         Map<String, Object> map = JsonUtil.parseObject(ctx.getBody());
         Integer skillId = JsonUtil.getInteger(map, "skillId");
+        String skillName = JsonUtil.getString(map, "skillName");
         Integer requiredLevel = JsonUtil.getInteger(map, "requiredLevel");
         Boolean mandatory = JsonUtil.getBoolean(map, "mandatory");
 
-        JobSkillRequest req = new JobSkillRequest(skillId, requiredLevel, mandatory != null ? mandatory : true);
+        JobSkillRequest req = new JobSkillRequest(skillId, skillName, requiredLevel, mandatory != null ? mandatory : true);
         JobSkillDto result = jobService.addOrUpdateJobSkill(jobId, req, ctx.getUserPrincipal());
         return HttpResponse.ok(result);
     }

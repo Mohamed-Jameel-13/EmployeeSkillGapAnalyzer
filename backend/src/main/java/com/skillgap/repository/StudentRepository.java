@@ -107,6 +107,17 @@ public class StudentRepository {
         }
     }
 
+    public boolean delete(int studentId) {
+        String sql = "DELETE FROM students WHERE student_id = ?";
+        try (Connection conn = dbConfig.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, studentId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new DatabaseException("Failed to delete student: " + studentId, e);
+        }
+    }
+
     public int countStudents() {
         String sql = "SELECT COUNT(*) FROM students WHERE role = 'USER'";
         try (Connection conn = dbConfig.getConnection();

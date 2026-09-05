@@ -8,7 +8,8 @@ import {
   Briefcase, 
   CheckCircle2, 
   AlertCircle,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
@@ -19,7 +20,7 @@ import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import { useRouter } from "../routes/Router";
 import { useAnalysis } from "../context/AnalysisContext";
-import { getStudentById, getStudentSkills, addOrUpdateStudentSkill } from "../api/students";
+import { getStudentById, getStudentSkills, addOrUpdateStudentSkill, deleteStudentSkill } from "../api/students";
 import { getSkills } from "../api/skills";
 import { PROFICIENCY_LEVELS, isValidProficiency } from "../utils/proficiency";
 
@@ -36,6 +37,7 @@ export default function StudentProfile() {
 
   // Add Skill Modal
   const [isModalOpen, setIsModalOpen] = useState(params.openAddSkill === "true");
+  const [selectedSkillId, setSelectedSkillId] = useState(null);
   const [newSkillName, setNewSkillName] = useState("");
   const [newProficiency, setNewProficiency] = useState(3);
   const [submittingSkill, setSubmittingSkill] = useState(false);
@@ -57,6 +59,7 @@ export default function StudentProfile() {
       setSkills(skillsData || []);
       setCatalog(catalogData || []);
       if (catalogData && catalogData.length > 0) {
+        setSelectedSkillId(catalogData[0].id);
         setNewSkillName(catalogData[0].name);
       }
     } catch (err) {
@@ -87,18 +90,32 @@ export default function StudentProfile() {
     setSubmittingSkill(true);
     try {
       // Contract: POST /api/students/{id}/skills
-      const updatedSkills = await addOrUpdateStudentSkill(studentId, {
+      await addOrUpdateStudentSkill(studentId, {
+        skillId: selectedSkillId || undefined,
         skillName: newSkillName.trim(),
         proficiency: parseInt(newProficiency, 10)
       });
 
-      setSkills(updatedSkills);
+      const freshSkills = await getStudentSkills(studentId);
+      setSkills(freshSkills || []);
       invalidateStudentCache(studentId);
       setIsModalOpen(false);
     } catch (err) {
       setSkillFormError(err.message || "Failed to save skill");
     } finally {
       setSubmittingSkill(false);
+    }
+  };
+
+  const handleDeleteSkill = async (skillId) => {
+    if (!window.confirm("Are you sure you want to remove this skill?")) return;
+    try {
+      await deleteStudentSkill(studentId, skillId);
+      const freshSkills = await getStudentSkills(studentId);
+      setSkills(freshSkills || []);
+      invalidateStudentCache(studentId);
+    } catch (err) {
+      alert(err.message || "Failed to remove skill");
     }
   };
 
@@ -193,7 +210,17 @@ export default function StudentProfile() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-900 text-sm">{sk.skillName}</span>
-                    <ProficiencyBadge level={proficiencyVal} />
+                    <div className="flex items-center gap-2">
+                      <ProficiencyBadge level={proficiencyVal} />
+                      <button
+                        type="button"
+                        title="Remove skill"
+                        onClick={() => handleDeleteSkill(sk.skillId)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Horizontal visual progress meter */}
@@ -250,22 +277,34 @@ export default function StudentProfile() {
                 <label className="block font-bold text-slate-700 mb-1">Skill Name</label>
                 <div className="space-y-2">
                   <select
-                    value={newSkillName}
-                    onChange={(e) => setNewSkillName(e.target.value)}
+                    value={selectedSkillId !== null ? selectedSkillId : "custom"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "custom") {
+                        setSelectedSkillId(null);
+                        setNewSkillName("");
+                      } else {
+                        const sId = parseInt(val, 10);
+                        setSelectedSkillId(sId);
+                        const match = catalog.find((c) => c.id === sId);
+                        if (match) setNewSkillName(match.name);
+                      }
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold focus:border-indigo-600 focus:outline-none"
                   >
                     {catalog.map((c) => (
-                      <option key={c.id} value={c.name}>
+                      <option key={c.id} value={c.id}>
                         {c.name} ({c.category})
                       </option>
                     ))}
                     <option value="custom">+ Type a different skill...</option>
                   </select>
 
-                  {newSkillName === "custom" && (
+                  {selectedSkillId === null && (
                     <input
                       type="text"
                       placeholder="Enter custom skill name (e.g. Spring Boot)"
+                      value={newSkillName}
                       onChange={(e) => setNewSkillName(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:border-indigo-600 focus:outline-none"
                     />

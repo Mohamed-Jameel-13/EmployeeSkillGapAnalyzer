@@ -65,4 +65,11 @@ public class StudentController {
         UserDto updated = studentService.updateStudent(studentId, req, ctx.getUserPrincipal());
         return HttpResponse.ok(updated);
     }
+
+    public HttpResponse deleteStudent(RequestContext ctx) {
+        SecurityContext.requireAdmin();
+        int studentId = ctx.getIntPathParam("id");
+        studentService.deleteStudent(studentId, ctx.getUserPrincipal());
+        return HttpResponse.ok(java.util.Collections.singletonMap("message", "Candidate deleted successfully"));
+    }
 }

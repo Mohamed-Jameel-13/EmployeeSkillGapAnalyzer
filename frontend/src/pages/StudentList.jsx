@@ -7,8 +7,9 @@ import {
   Award, 
   Sparkles, 
   Mail, 
-  Briefcase,
-  ChevronRight
+  Briefcase, 
+  ChevronRight,
+  Trash2
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
@@ -18,7 +19,7 @@ import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import { useRouter } from "../routes/Router";
 import { useAnalysis } from "../context/AnalysisContext";
-import { getStudents } from "../api/students";
+import { getStudents, deleteStudent } from "../api/students";
 
 export default function StudentList() {
   const { navigate } = useRouter();
@@ -38,6 +39,18 @@ export default function StudentList() {
       setError(err.message || "Failed to load student/employee records");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteStudent = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete candidate "${name}" (ID #${id})?`)) {
+      return;
+    }
+    try {
+      await deleteStudent(id);
+      loadStudents();
+    } catch (err) {
+      alert(err.message || "Failed to delete candidate");
     }
   };
 
@@ -185,6 +198,14 @@ export default function StudentList() {
                         >
                           <Sparkles className="w-3.5 h-3.5" />
                           Analyze
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteStudent(s.id, s.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Delete Candidate"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

@@ -37,9 +37,10 @@ public class StudentSkillController {
         }
         Map<String, Object> map = JsonUtil.parseObject(ctx.getBody());
         Integer skillId = JsonUtil.getInteger(map, "skillId");
+        String skillName = JsonUtil.getString(map, "skillName");
         Integer proficiency = JsonUtil.getInteger(map, "proficiency");
 
-        StudentSkillRequest req = new StudentSkillRequest(skillId, proficiency);
+        StudentSkillRequest req = new StudentSkillRequest(skillId, skillName, proficiency);
         StudentSkill result = studentService.addOrUpdateStudentSkill(studentId, req, ctx.getUserPrincipal());
         return HttpResponse.ok(result);
     }

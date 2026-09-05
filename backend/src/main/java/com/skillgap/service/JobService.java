@@ -132,20 +132,30 @@ public class JobService {
             throw new NotFoundException("Job not found with ID: " + jobId);
         }
 
-        if (request == null || request.getSkillId() == null) {
-            throw new ValidationException("Skill ID is required");
+        if (request == null) {
+            throw new ValidationException("Request body cannot be empty");
         }
         if (request.getRequiredLevel() == null || request.getRequiredLevel() < 1 || request.getRequiredLevel() > 5) {
             throw new ValidationException("Required level must be between 1 and 5");
         }
 
-        Skill skill = skillRepository.findById(request.getSkillId());
+        Skill skill = null;
+        if (request.getSkillId() != null) {
+            skill = skillRepository.findById(request.getSkillId());
+        }
+        if (skill == null && request.getSkillName() != null && !request.getSkillName().trim().isEmpty()) {
+            skill = skillRepository.findByName(request.getSkillName().trim());
+            if (skill == null) {
+                skill = skillRepository.create(new Skill(0, request.getSkillName().trim(), "General"));
+            }
+        }
+
         if (skill == null) {
-            throw new NotFoundException("Skill not found with ID: " + request.getSkillId());
+            throw new ValidationException("Skill ID or valid Skill Name is required");
         }
 
         boolean mandatory = request.getMandatory() != null ? request.getMandatory() : true;
-        JobSkill js = jobSkillRepository.upsert(jobId, request.getSkillId(), request.getRequiredLevel(), mandatory);
+        JobSkill js = jobSkillRepository.upsert(jobId, skill.getSkillId(), request.getRequiredLevel(), mandatory);
 
         return new JobSkillDto(
                 1,

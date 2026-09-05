@@ -23,3 +23,11 @@ export function updateJob(id, data) {
 export function deleteJob(id) {
   return apiClient.delete(`/api/jobs/${id}`);
 }
+
+export function addOrUpdateJobSkill(jobId, skillData) {
+  return apiClient.post(`/api/jobs/${jobId}/skills`, skillData);
+}
+
+export function deleteJobSkill(jobId, skillId) {
+  return apiClient.delete(`/api/jobs/${jobId}/skills/${skillId}`);
+}

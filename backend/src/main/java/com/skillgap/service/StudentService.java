@@ -135,19 +135,29 @@ public class StudentService {
             throw new NotFoundException("Student not found with ID: " + studentId);
         }
 
-        if (request == null || request.getSkillId() == null) {
-            throw new ValidationException("Skill ID is required");
+        if (request == null) {
+            throw new ValidationException("Skill request cannot be empty");
         }
         if (request.getProficiency() == null || request.getProficiency() < 1 || request.getProficiency() > 5) {
             throw new ValidationException("Proficiency must be between 1 and 5");
         }
 
-        Skill skill = skillRepository.findById(request.getSkillId());
-        if (skill == null) {
-            throw new NotFoundException("Skill not found with ID: " + request.getSkillId());
+        Skill skill = null;
+        if (request.getSkillId() != null) {
+            skill = skillRepository.findById(request.getSkillId());
+        }
+        if (skill == null && request.getSkillName() != null && !request.getSkillName().trim().isEmpty()) {
+            skill = skillRepository.findByName(request.getSkillName().trim());
+            if (skill == null) {
+                skill = skillRepository.create(new Skill(0, request.getSkillName().trim(), "General"));
+            }
         }
 
-        return studentSkillRepository.upsert(studentId, request.getSkillId(), request.getProficiency());
+        if (skill == null) {
+            throw new ValidationException("Skill ID or a valid Skill Name is required");
+        }
+
+        return studentSkillRepository.upsert(studentId, skill.getSkillId(), request.getProficiency());
     }
 
     public boolean deleteStudentSkill(int studentId, int skillId, UserPrincipal currentUser) {
@@ -157,6 +167,15 @@ public class StudentService {
             throw new NotFoundException("Student not found with ID: " + studentId);
         }
         return studentSkillRepository.delete(studentId, skillId);
+    }
+
+    public boolean deleteStudent(int studentId, UserPrincipal currentUser) {
+        requireAdmin(currentUser);
+        Student s = studentRepository.findById(studentId);
+        if (s == null) {
+            throw new NotFoundException("Student not found with ID: " + studentId);
+        }
+        return studentRepository.delete(studentId);
     }
 
     private void requireAdmin(UserPrincipal currentUser) {

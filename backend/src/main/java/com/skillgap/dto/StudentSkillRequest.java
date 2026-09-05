@@ -2,6 +2,7 @@ package com.skillgap.dto;
 
 public class StudentSkillRequest {
     private Integer skillId;
+    private String skillName;
     private Integer proficiency; // 1 to 5
 
     public StudentSkillRequest() {
@@ -12,12 +13,26 @@ public class StudentSkillRequest {
         this.proficiency = proficiency;
     }
 
+    public StudentSkillRequest(Integer skillId, String skillName, Integer proficiency) {
+        this.skillId = skillId;
+        this.skillName = skillName;
+        this.proficiency = proficiency;
+    }
+
     public Integer getSkillId() {
         return skillId;
     }
 
     public void setSkillId(Integer skillId) {
         this.skillId = skillId;
+    }
+
+    public String getSkillName() {
+        return skillName;
+    }
+
+    public void setSkillName(String skillName) {
+        this.skillName = skillName;
     }
 
     public Integer getProficiency() {

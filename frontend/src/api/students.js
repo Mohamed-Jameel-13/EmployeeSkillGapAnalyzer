@@ -27,3 +27,7 @@ export function addOrUpdateStudentSkill(id, skillData) {
 export function deleteStudentSkill(studentId, skillId) {
   return apiClient.delete(`/api/students/${studentId}/skills/${skillId}`);
 }
+
+export function deleteStudent(id) {
+  return apiClient.delete(`/api/students/${id}`);
+}
