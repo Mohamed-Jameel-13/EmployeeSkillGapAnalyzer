@@ -40,11 +40,11 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-700 shadow-lg mb-4">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            Skill Gap Analyzer
+          <h1 className="text-3xl font-black text-white tracking-tight">
+            SkillBridge
           </h1>
           <p className="text-sm text-indigo-300 mt-1 font-medium">
-            Employee & Student Competency Platform
+            Employee & Student Skill Gap Analyzer
           </p>
         </div>
 
