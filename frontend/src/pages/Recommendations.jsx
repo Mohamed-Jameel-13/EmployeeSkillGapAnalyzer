@@ -13,40 +13,64 @@ import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
 import { useRouter } from "../routes/Router";
+import { useAuth } from "../context/AuthContext";
 import { getStudents } from "../api/students";
 import { getJobs } from "../api/jobs";
 import { getRecommendations } from "../api/recommendations";
 
 export default function Recommendations() {
   const { params, navigate } = useRouter();
+  const { user } = useAuth();
 
   const [students, setStudents] = useState([]);
   const [jobs, setJobs] = useState([]);
 
-  const [selectedStudentId, setSelectedStudentId] = useState(params.studentId ? parseInt(params.studentId, 10) : 101);
-  const [selectedJobId, setSelectedJobId] = useState(params.jobId ? parseInt(params.jobId, 10) : 501);
+  const defaultStudentId = params.studentId 
+    ? parseInt(params.studentId, 10) 
+    : (user?.id || 101);
+
+  const [selectedStudentId, setSelectedStudentId] = useState(defaultStudentId);
+  const [selectedJobId, setSelectedJobId] = useState(params.jobId ? parseInt(params.jobId, 10) : null);
 
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([getStudents(), getJobs()])
-      .then(([studentsList, jobsList]) => {
-        setStudents(studentsList || []);
-        setJobs(jobsList || []);
+    const fetchPrerequisites = async () => {
+      try {
+        let loadedStudents = [];
+        if (user?.role === "ADMIN") {
+          try {
+            loadedStudents = await getStudents();
+          } catch (e) {
+            loadedStudents = [{ id: user.id, name: user.name, role: "Student" }];
+          }
+        } else if (user) {
+          loadedStudents = [{ id: user.id, name: user.name, role: "Student" }];
+        }
 
-        if (studentsList?.length > 0 && !selectedStudentId) {
-          setSelectedStudentId(studentsList[0].id);
+        const loadedJobs = await getJobs();
+
+        setStudents(loadedStudents || []);
+        setJobs(loadedJobs || []);
+
+        const validStudentId = loadedStudents?.some(s => s.id === selectedStudentId)
+          ? selectedStudentId
+          : (loadedStudents?.[0]?.id || user?.id || 101);
+
+        setSelectedStudentId(validStudentId);
+
+        if (loadedJobs?.length > 0 && !selectedJobId) {
+          setSelectedJobId(loadedJobs[0].id);
         }
-        if (jobsList?.length > 0 && !selectedJobId) {
-          setSelectedJobId(jobsList[0].id);
-        }
-      })
-      .catch((err) => {
-        setError(err.message || "Failed to load candidates and jobs");
-      });
-  }, []);
+      } catch (err) {
+        setError(err.message || "Failed to load candidate or job data");
+      }
+    };
+
+    fetchPrerequisites();
+  }, [user]);
 
   const loadRecommendations = async () => {
     if (!selectedStudentId || !selectedJobId) return;
@@ -56,7 +80,7 @@ export default function Recommendations() {
     try {
       // Contract: GET /api/students/{studentId}/jobs/{jobId}/recommendations
       const data = await getRecommendations(selectedStudentId, selectedJobId);
-      setRecommendations(data || []);
+      setRecommendations(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || "Failed to generate recommendations from REST API");
     } finally {
@@ -70,23 +94,30 @@ export default function Recommendations() {
     }
   }, [selectedStudentId, selectedJobId]);
 
-  const priorityStyles = {
-    "HIGH PRIORITY": {
-      badge: "bg-rose-50 text-rose-700 border-rose-200",
-      card: "border-l-4 border-l-rose-500",
-      text: "text-rose-700"
-    },
-    "MEDIUM PRIORITY": {
-      badge: "bg-amber-50 text-amber-800 border-amber-200",
-      card: "border-l-4 border-l-amber-500",
-      text: "text-amber-800"
-    },
-    "LOW PRIORITY": {
+  const getPriorityStyle = (priorityStr) => {
+    const p = String(priorityStr || "").toUpperCase();
+    if (p.includes("HIGH")) {
+      return {
+        badge: "bg-rose-50 text-rose-700 border-rose-200",
+        card: "border-l-4 border-l-rose-500",
+        text: "text-rose-700"
+      };
+    }
+    if (p.includes("MED")) {
+      return {
+        badge: "bg-amber-50 text-amber-800 border-amber-200",
+        card: "border-l-4 border-l-amber-500",
+        text: "text-amber-800"
+      };
+    }
+    return {
       badge: "bg-blue-50 text-blue-700 border-blue-200",
       card: "border-l-4 border-l-blue-500",
       text: "text-blue-700"
-    }
+    };
   };
+
+  const selectedStudent = students.find(s => s.id === selectedStudentId) || { name: user?.name || "Candidate" };
 
   return (
     <div className="space-y-6">
@@ -101,19 +132,25 @@ export default function Recommendations() {
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-indigo-600" />
-              Employee / Student:
+              Candidate:
             </label>
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(parseInt(e.target.value, 10))}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold focus:border-indigo-600 focus:outline-none"
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.role || "Software Engineer"})
-                </option>
-              ))}
-            </select>
+            {user?.role === "ADMIN" && students.length > 1 ? (
+              <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(parseInt(e.target.value, 10))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold focus:border-indigo-600 focus:outline-none"
+              >
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.role || "Candidate"})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800">
+                {selectedStudent.name} (ID #{selectedStudentId})
+              </div>
+            )}
           </div>
 
           <div>
@@ -122,7 +159,7 @@ export default function Recommendations() {
               Target Job:
             </label>
             <select
-              value={selectedJobId}
+              value={selectedJobId || ""}
               onChange={(e) => setSelectedJobId(parseInt(e.target.value, 10))}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold focus:border-indigo-600 focus:outline-none"
             >
@@ -158,7 +195,12 @@ export default function Recommendations() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {recommendations.map((rec, i) => {
-            const style = priorityStyles[rec.priority] || priorityStyles["LOW PRIORITY"];
+            const style = getPriorityStyle(rec.priority);
+            const skillName = rec.skillName || rec.skill || `Skill #${rec.skillId}`;
+            const curLvl = rec.currentLevel ?? rec.current ?? 0;
+            const targetLvl = rec.targetLevel ?? rec.target ?? 0;
+            const gapVal = rec.gap ?? Math.max(targetLvl - curLvl, 0);
+
             return (
               <div
                 key={i}
@@ -167,27 +209,27 @@ export default function Recommendations() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className={`px-2.5 py-1 rounded-lg border font-extrabold text-[10px] uppercase tracking-wider ${style.badge}`}>
-                      {rec.priority}
+                      {rec.priority} PRIORITY
                     </span>
                     <span className="text-[11px] font-bold text-rose-600">
-                      Gap: -{rec.gap} Level(s)
+                      Gap: -{gapVal} Level(s)
                     </span>
                   </div>
 
                   <h3 className="text-lg font-bold text-slate-900">
-                    {rec.skill}
+                    {skillName}
                   </h3>
 
                   {/* Level Transition Pill */}
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
                     <div>
                       <span className="text-slate-400 block text-[10px] font-bold">CURRENT</span>
-                      <span className="font-extrabold text-slate-800">{rec.current} / 5</span>
+                      <span className="font-extrabold text-slate-800">{curLvl} / 5</span>
                     </div>
                     <ArrowRight className="w-4 h-4 text-indigo-500" />
                     <div className="text-right">
                       <span className="text-indigo-600 block text-[10px] font-bold">TARGET</span>
-                      <span className="font-extrabold text-indigo-700">{rec.target} / 5</span>
+                      <span className="font-extrabold text-indigo-700">{targetLvl} / 5</span>
                     </div>
                   </div>
 

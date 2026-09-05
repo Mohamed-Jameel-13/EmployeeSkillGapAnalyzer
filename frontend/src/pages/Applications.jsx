@@ -18,12 +18,14 @@ import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
 import { useRouter } from "../routes/Router";
+import { useAuth } from "../context/AuthContext";
 import { getApplications, createApplication } from "../api/applications";
 import { getStudents } from "../api/students";
 import { getJobs } from "../api/jobs";
 
 export default function Applications() {
   const { navigate } = useRouter();
+  const { user } = useAuth();
   const [applications, setApplications] = useState([]);
   const [students, setStudents] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -34,7 +36,7 @@ export default function Applications() {
 
   // Create Application Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState(user?.id || "");
   const [selectedJobId, setSelectedJobId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState(null);
@@ -43,9 +45,19 @@ export default function Applications() {
     setLoading(true);
     setError(null);
     try {
-      const [appsData, studentsList, jobsList] = await Promise.all([
+      let studentsList = [];
+      if (user?.role === "ADMIN") {
+        try {
+          studentsList = await getStudents();
+        } catch (e) {
+          studentsList = [{ id: user.id, name: user.name }];
+        }
+      } else if (user) {
+        studentsList = [{ id: user.id, name: user.name }];
+      }
+
+      const [appsData, jobsList] = await Promise.all([
         getApplications(),
-        getStudents(),
         getJobs()
       ]);
 
@@ -53,8 +65,12 @@ export default function Applications() {
       setStudents(studentsList || []);
       setJobs(jobsList || []);
 
-      if (studentsList?.length > 0) setSelectedStudentId(studentsList[0].id);
-      if (jobsList?.length > 0) setSelectedJobId(jobsList[0].id);
+      const defStudent = studentsList?.some(s => s.id === selectedStudentId)
+        ? selectedStudentId
+        : (studentsList?.[0]?.id || user?.id || "");
+      setSelectedStudentId(defStudent);
+
+      if (jobsList?.length > 0 && !selectedJobId) setSelectedJobId(jobsList[0].id);
     } catch (err) {
       setError(err.message || "Failed to load application records");
     } finally {
@@ -64,7 +80,7 @@ export default function Applications() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user]);
 
   const handleCreateApplication = async (e) => {
     e.preventDefault();
