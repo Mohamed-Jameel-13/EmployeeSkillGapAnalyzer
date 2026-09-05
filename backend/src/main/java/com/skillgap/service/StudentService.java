@@ -64,7 +64,11 @@ public class StudentService {
         if (request.getEmail() == null || request.getEmail().trim().isEmpty() || !request.getEmail().contains("@")) {
             throw new ValidationException("Valid student email is required");
         }
-        if (request.getPassword() == null || request.getPassword().length() < 4) {
+        String rawPassword = (request.getPassword() != null && !request.getPassword().trim().isEmpty())
+                ? request.getPassword().trim()
+                : "password";
+
+        if (rawPassword.length() < 4) {
             throw new ValidationException("Password must be at least 4 characters long");
         }
 
@@ -74,7 +78,7 @@ public class StudentService {
         }
 
         String role = (request.getRole() != null && "ADMIN".equalsIgnoreCase(request.getRole().trim())) ? "ADMIN" : "USER";
-        String passwordHash = PasswordUtil.hash(request.getPassword());
+        String passwordHash = PasswordUtil.hash(rawPassword);
 
         Student s = new Student();
         s.setName(request.getName().trim());

@@ -1,20 +1,24 @@
 import React, { useState } from "react";
-import { ArrowLeft, UserPlus, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, UserPlus, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { useRouter } from "../routes/Router";
+import { useAnalysis } from "../context/AnalysisContext";
 import { createStudent } from "../api/students";
 
 export default function AddStudent() {
   const { navigate } = useRouter();
+  const { setSelectedStudentId } = useAnalysis();
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    role: "Java Full Stack Developer"
+    role: "Java Full Stack Developer",
+    password: ""
   });
 
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
@@ -29,6 +33,10 @@ export default function AddStudent() {
       errs.email = "Email address is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
       errs.email = "Please enter a valid email address (e.g. candidate@example.com)";
+    }
+
+    if (formData.password.trim().length > 0 && formData.password.trim().length < 4) {
+      errs.password = "Password must be at least 4 characters long";
     }
 
     setErrors(errs);
@@ -47,8 +55,14 @@ export default function AddStudent() {
       const newStudent = await createStudent({
         name: formData.name.trim(),
         email: formData.email.trim(),
-        role: formData.role.trim()
+        role: formData.role.trim(),
+        password: formData.password.trim() || "password"
       });
+
+      // Update global persistent selection
+      if (newStudent?.id) {
+        setSelectedStudentId(newStudent.id);
+      }
 
       // Redirect directly to student's profile to manage skills!
       navigate("student-profile", { studentId: newStudent.id, openAddSkill: "true" });
@@ -141,6 +155,46 @@ export default function AddStudent() {
             />
             <p className="text-slate-400 text-[11px] mt-1">
               Used as the reference baseline for role-based skill gap diagnostics.
+            </p>
+          </div>
+
+          {/* Initial Account Password */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-bold text-slate-700">
+                Initial Account Password
+              </label>
+              <span className="text-[11px] text-slate-400 font-medium">
+                Default: <span className="bg-slate-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">password</span>
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Leave blank to use default (password)"
+                value={formData.password}
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  if (errors.password) setErrors({ ...errors, password: null });
+                }}
+                className={`w-full px-3.5 py-2.5 pr-10 rounded-xl border text-xs transition-all focus:outline-none focus:ring-2 ${
+                  errors.password 
+                    ? "border-rose-300 focus:ring-rose-200" 
+                    : "border-slate-300 focus:border-indigo-600 focus:ring-indigo-100"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                tabIndex="-1"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {errors.password && <p className="text-rose-600 text-[11px] mt-1 font-semibold">{errors.password}</p>}
+            <p className="text-slate-400 text-[11px] mt-1">
+              Candidate will use this password to sign into their SkillBridge dashboard.
             </p>
           </div>
 
