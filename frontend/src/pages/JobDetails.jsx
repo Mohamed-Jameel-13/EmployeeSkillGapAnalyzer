@@ -14,22 +14,28 @@ import Button from "../components/Button";
 import ProficiencyBadge from "../components/ProficiencyBadge";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
+import MatchScoreGauge from "../components/MatchScoreGauge";
 import { useRouter } from "../routes/Router";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getJobById, getJobSkills } from "../api/jobs";
 
 export default function JobDetails() {
   const { params, navigate } = useRouter();
-  const jobId = params.jobId || 501;
+  const { selectedStudentId, selectedJobId, setSelectedJobId, getMatchScore, fetchGapAnalysis } = useAnalysis();
+  const jobId = parseInt(params.jobId || selectedJobId || 501, 10);
 
   const [job, setJob] = useState(null);
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const matchScore = getMatchScore(selectedStudentId, jobId);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
+      setSelectedJobId(jobId);
       const [jobData, skillsData] = await Promise.all([
         getJobById(jobId),
         getJobSkills(jobId)
@@ -39,6 +45,10 @@ export default function JobDetails() {
 
       setJob(jobData);
       setSkills(skillsData || jobData.skills || []);
+
+      if (selectedStudentId && matchScore === null) {
+        fetchGapAnalysis(selectedStudentId, jobId).catch(() => {});
+      }
     } catch (err) {
       setError(err.message || "Failed to load job details");
     } finally {
@@ -81,14 +91,25 @@ export default function JobDetails() {
           </div>
         </div>
 
-        <Button
-          variant="primary"
-          size="lg"
-          icon={Sparkles}
-          onClick={() => navigate("skill-gap", { jobId: job.id })}
-        >
-          Analyze Candidate
-        </Button>
+        <div className="flex items-center gap-4 flex-wrap">
+          {matchScore !== null && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-2xl">
+              <MatchScoreGauge score={matchScore} size="md" showLabel={true} />
+            </div>
+          )}
+
+          <Button
+            variant="primary"
+            size="lg"
+            icon={Sparkles}
+            onClick={() => {
+              setSelectedJobId(job.id);
+              navigate("skill-gap", { jobId: job.id, studentId: selectedStudentId });
+            }}
+          >
+            Analyze Candidate
+          </Button>
+        </div>
       </div>
 
       {/* Description */}
