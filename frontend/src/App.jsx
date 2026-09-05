@@ -3,6 +3,8 @@ import Navbar from "./components/Navbar";
 import { RouterProvider, useRouter } from "./routes/Router";
 import { useAuth } from "./context/AuthContext";
 
+import { AnalysisProvider } from "./context/AnalysisContext";
+
 // Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -53,7 +55,9 @@ function AppContent() {
 export default function App() {
   return (
     <RouterProvider>
-      <AppContent />
+      <AnalysisProvider>
+        <AppContent />
+      </AnalysisProvider>
     </RouterProvider>
   );
 }

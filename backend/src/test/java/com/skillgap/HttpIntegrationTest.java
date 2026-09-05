@@ -35,10 +35,14 @@ public class HttpIntegrationTest {
         System.out.println("=================================================");
 
         int testPort = 8899;
-        System.setProperty("SERVER_PORT", String.valueOf(testPort));
-        System.setProperty("FRONTEND_ORIGIN", "http://localhost:5173");
-
-        AppConfig config = new AppConfig(new EnvLoader());
+        EnvLoader env = new EnvLoader() {
+            @Override
+            public int getInt(String key, int defaultValue) {
+                if ("SERVER_PORT".equals(key)) return testPort;
+                return super.getInt(key, defaultValue);
+            }
+        };
+        AppConfig config = new AppConfig(env);
         TokenService tokenService = new TokenService();
 
         // Setup test data in memory for integration testing without external dependencies

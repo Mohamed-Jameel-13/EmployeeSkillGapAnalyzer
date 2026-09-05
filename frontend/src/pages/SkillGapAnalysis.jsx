@@ -16,34 +16,58 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
+import MatchScoreGauge from "../components/MatchScoreGauge";
 import { useRouter } from "../routes/Router";
 import { useAuth } from "../context/AuthContext";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getStudents } from "../api/students";
 import { getJobs } from "../api/jobs";
-import { getSkillGap } from "../api/skillGap";
 import { createApplication } from "../api/applications";
 
 export default function SkillGapAnalysis() {
   const { params, navigate } = useRouter();
   const { user } = useAuth();
+  const { 
+    selectedStudentId, 
+    setSelectedStudentId, 
+    selectedJobId, 
+    setSelectedJobId,
+    gapDataMap,
+    fetchGapAnalysis 
+  } = useAnalysis();
 
   const [students, setStudents] = useState([]);
   const [jobs, setJobs] = useState([]);
 
-  // If normal student user, default to their own user id
-  const defaultStudentId = params.studentId 
-    ? parseInt(params.studentId, 10) 
-    : (user?.id || 101);
+  // Restore immediately from cache if available so match percentage never resets
+  const cacheKey = `${selectedStudentId}_${selectedJobId}`;
+  const cachedGapData = gapDataMap[cacheKey] || null;
 
-  const [selectedStudentId, setSelectedStudentId] = useState(defaultStudentId);
-  const [selectedJobId, setSelectedJobId] = useState(params.jobId ? parseInt(params.jobId, 10) : null);
-
-  const [gapData, setGapData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [gapData, setGapData] = useState(cachedGapData);
+  const [loading, setLoading] = useState(!cachedGapData);
   const [error, setError] = useState(null);
 
   const [applying, setApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
+
+  // Sync router params into persistent selection if provided
+  useEffect(() => {
+    if (params.studentId) {
+      const parsed = parseInt(params.studentId, 10);
+      if (!isNaN(parsed) && parsed !== selectedStudentId) {
+        setSelectedStudentId(parsed);
+      }
+    }
+  }, [params.studentId, selectedStudentId, setSelectedStudentId]);
+
+  useEffect(() => {
+    if (params.jobId) {
+      const parsed = parseInt(params.jobId, 10);
+      if (!isNaN(parsed) && parsed !== selectedJobId) {
+        setSelectedJobId(parsed);
+      }
+    }
+  }, [params.jobId, selectedJobId, setSelectedJobId]);
 
   // Initial load: fetch jobs and students (if admin) or set current user
   useEffect(() => {
@@ -66,12 +90,6 @@ export default function SkillGapAnalysis() {
         setStudents(loadedStudents || []);
         setJobs(loadedJobs || []);
 
-        const validStudentId = loadedStudents?.some(s => s.id === selectedStudentId)
-          ? selectedStudentId
-          : (loadedStudents?.[0]?.id || user?.id || 101);
-
-        setSelectedStudentId(validStudentId);
-
         if (loadedJobs?.length > 0 && !selectedJobId) {
           setSelectedJobId(loadedJobs[0].id);
         }
@@ -81,26 +99,37 @@ export default function SkillGapAnalysis() {
     };
 
     fetchPrerequisites();
-  }, [user]);
+  }, [user, selectedJobId, setSelectedJobId]);
 
-  const runAnalysis = async () => {
+  const runAnalysis = async (force = false) => {
     if (!selectedStudentId || !selectedJobId) return;
-    setLoading(true);
+    const currentCached = gapDataMap[`${selectedStudentId}_${selectedJobId}`];
+    if (!currentCached || force) {
+      setLoading(true);
+    }
     setError(null);
     setApplySuccess(false);
 
     try {
-      // Contract: GET /api/students/{studentId}/jobs/{jobId}/skill-gap
-      const result = await getSkillGap(selectedStudentId, selectedJobId);
-      setGapData(result);
+      const result = await fetchGapAnalysis(selectedStudentId, selectedJobId, force);
+      if (result) {
+        setGapData(result);
+      }
     } catch (err) {
-      setError(err.message || "Skill gap analysis request failed");
+      if (!currentCached) {
+        setError(err.message || "Skill gap analysis request failed");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    const currentCached = gapDataMap[`${selectedStudentId}_${selectedJobId}`];
+    if (currentCached) {
+      setGapData(currentCached);
+      setLoading(false);
+    }
     if (selectedStudentId && selectedJobId) {
       runAnalysis();
     }
@@ -213,9 +242,7 @@ export default function SkillGapAnalysis() {
                 </div>
               </div>
 
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-black text-xl">
-                {overallMatch}%
-              </div>
+              <MatchScoreGauge score={overallMatch} size="lg" showLabel={false} />
             </div>
           </div>
 

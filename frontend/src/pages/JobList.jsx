@@ -13,11 +13,14 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
+import MatchScoreGauge from "../components/MatchScoreGauge";
 import { useRouter } from "../routes/Router";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getJobs } from "../api/jobs";
 
 export default function JobList() {
   const { navigate } = useRouter();
+  const { selectedStudentId, setSelectedJobId, getMatchScore, preloadJobMatches } = useAnalysis();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,7 +31,10 @@ export default function JobList() {
     setError(null);
     try {
       const data = await getJobs();
-      setJobs(data);
+      setJobs(data || []);
+      if (selectedStudentId && Array.isArray(data)) {
+        preloadJobMatches(selectedStudentId, data);
+      }
     } catch (err) {
       setError(err.message || "Failed to load jobs");
     } finally {
@@ -38,7 +44,7 @@ export default function JobList() {
 
   useEffect(() => {
     loadJobs();
-  }, []);
+  }, [selectedStudentId]);
 
   const filteredJobs = jobs.filter((j) => {
     const q = search.toLowerCase();
@@ -74,70 +80,87 @@ export default function JobList() {
         <ErrorState title="Error Loading Jobs" message={error} onRetry={loadJobs} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredJobs.map((job) => (
-            <div
-              key={job.id}
-              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xs hover:shadow-md hover:border-indigo-200 transition-all flex flex-col justify-between space-y-4 group"
-            >
-              <div className="space-y-3">
-                <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100">
-                  {job.company}
-                </span>
+          {filteredJobs.map((job) => {
+            const matchScore = getMatchScore(selectedStudentId, job.id);
+            return (
+              <div
+                key={job.id}
+                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xs hover:shadow-md hover:border-indigo-200 transition-all flex flex-col justify-between space-y-4 group"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100">
+                      {job.company}
+                    </span>
+                    {matchScore !== null && (
+                      <div className="flex items-center gap-1.5" title={`${matchScore}% Candidate Match`}>
+                        <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">Match:</span>
+                        <MatchScoreGauge score={matchScore} size="sm" showLabel={false} />
+                      </div>
+                    )}
+                  </div>
 
-                <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                  {job.title}
-                </h3>
+                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    {job.title}
+                  </h3>
 
-                <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{job.location}</span>
+                  <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{job.location}</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                    {job.description}
+                  </p>
+
+                  {/* Required Skills Summary */}
+                  <div className="pt-2 space-y-1.5">
+                    <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                      Required Skills ({job.skills?.length || 0})
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(job.skills || []).map((sk) => (
+                        <span
+                          key={sk.skillId}
+                          className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium border border-slate-200"
+                        >
+                          {sk.skillName} ({sk.requiredProficiency}/5)
+                          {sk.mandatory && <span className="text-rose-500 font-bold ml-0.5">*</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                  {job.description}
-                </p>
+                {/* Actions */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Eye}
+                    onClick={() => {
+                      setSelectedJobId(job.id);
+                      navigate("job-details", { jobId: job.id });
+                    }}
+                  >
+                    View Details
+                  </Button>
 
-                {/* Required Skills Summary */}
-                <div className="pt-2 space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    Required Skills ({job.skills?.length || 0})
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(job.skills || []).map((sk) => (
-                      <span
-                        key={sk.skillId}
-                        className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium border border-slate-200"
-                      >
-                        {sk.skillName} ({sk.requiredProficiency}/5)
-                        {sk.mandatory && <span className="text-rose-500 font-bold ml-0.5">*</span>}
-                      </span>
-                    ))}
-                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Sparkles}
+                    onClick={() => {
+                      setSelectedJobId(job.id);
+                      navigate("skill-gap", { jobId: job.id, studentId: selectedStudentId });
+                    }}
+                  >
+                    Analyze Candidate
+                  </Button>
                 </div>
               </div>
-
-              {/* Actions */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Eye}
-                  onClick={() => navigate("job-details", { jobId: job.id })}
-                >
-                  View Details
-                </Button>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Sparkles}
-                  onClick={() => navigate("skill-gap", { jobId: job.id })}
-                >
-                  Analyze Candidate
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

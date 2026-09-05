@@ -14,27 +14,50 @@ import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
 import { useRouter } from "../routes/Router";
 import { useAuth } from "../context/AuthContext";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getStudents } from "../api/students";
 import { getJobs } from "../api/jobs";
-import { getRecommendations } from "../api/recommendations";
 
 export default function Recommendations() {
   const { params, navigate } = useRouter();
   const { user } = useAuth();
+  const { 
+    selectedStudentId, 
+    setSelectedStudentId, 
+    selectedJobId, 
+    setSelectedJobId,
+    recsMap,
+    fetchRecommendationsData 
+  } = useAnalysis();
 
   const [students, setStudents] = useState([]);
   const [jobs, setJobs] = useState([]);
 
-  const defaultStudentId = params.studentId 
-    ? parseInt(params.studentId, 10) 
-    : (user?.id || 101);
+  const cacheKey = `${selectedStudentId}_${selectedJobId}`;
+  const cachedRecs = recsMap[cacheKey] || null;
 
-  const [selectedStudentId, setSelectedStudentId] = useState(defaultStudentId);
-  const [selectedJobId, setSelectedJobId] = useState(params.jobId ? parseInt(params.jobId, 10) : null);
-
-  const [recommendations, setRecommendations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState(cachedRecs || []);
+  const [loading, setLoading] = useState(cachedRecs === null);
   const [error, setError] = useState(null);
+
+  // Sync router params into persistent selection if provided
+  useEffect(() => {
+    if (params.studentId) {
+      const parsed = parseInt(params.studentId, 10);
+      if (!isNaN(parsed) && parsed !== selectedStudentId) {
+        setSelectedStudentId(parsed);
+      }
+    }
+  }, [params.studentId, selectedStudentId, setSelectedStudentId]);
+
+  useEffect(() => {
+    if (params.jobId) {
+      const parsed = parseInt(params.jobId, 10);
+      if (!isNaN(parsed) && parsed !== selectedJobId) {
+        setSelectedJobId(parsed);
+      }
+    }
+  }, [params.jobId, selectedJobId, setSelectedJobId]);
 
   useEffect(() => {
     const fetchPrerequisites = async () => {
@@ -55,12 +78,6 @@ export default function Recommendations() {
         setStudents(loadedStudents || []);
         setJobs(loadedJobs || []);
 
-        const validStudentId = loadedStudents?.some(s => s.id === selectedStudentId)
-          ? selectedStudentId
-          : (loadedStudents?.[0]?.id || user?.id || 101);
-
-        setSelectedStudentId(validStudentId);
-
         if (loadedJobs?.length > 0 && !selectedJobId) {
           setSelectedJobId(loadedJobs[0].id);
         }
@@ -70,25 +87,34 @@ export default function Recommendations() {
     };
 
     fetchPrerequisites();
-  }, [user]);
+  }, [user, selectedJobId, setSelectedJobId]);
 
-  const loadRecommendations = async () => {
+  const loadRecommendations = async (force = false) => {
     if (!selectedStudentId || !selectedJobId) return;
-    setLoading(true);
+    const currentCached = recsMap[`${selectedStudentId}_${selectedJobId}`];
+    if (currentCached === undefined || force) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
-      // Contract: GET /api/students/{studentId}/jobs/{jobId}/recommendations
-      const data = await getRecommendations(selectedStudentId, selectedJobId);
+      const data = await fetchRecommendationsData(selectedStudentId, selectedJobId, force);
       setRecommendations(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message || "Failed to generate recommendations from REST API");
+      if (!currentCached) {
+        setError(err.message || "Failed to generate recommendations from REST API");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    const currentCached = recsMap[`${selectedStudentId}_${selectedJobId}`];
+    if (currentCached !== undefined) {
+      setRecommendations(currentCached);
+      setLoading(false);
+    }
     if (selectedStudentId && selectedJobId) {
       loadRecommendations();
     }

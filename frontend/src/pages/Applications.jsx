@@ -17,8 +17,10 @@ import Button from "../components/Button";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
+import MatchScoreGauge from "../components/MatchScoreGauge";
 import { useRouter } from "../routes/Router";
 import { useAuth } from "../context/AuthContext";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getApplications, createApplication } from "../api/applications";
 import { getStudents } from "../api/students";
 import { getJobs } from "../api/jobs";
@@ -26,6 +28,13 @@ import { getJobs } from "../api/jobs";
 export default function Applications() {
   const { navigate } = useRouter();
   const { user } = useAuth();
+  const { 
+    selectedStudentId: activeStudentId, 
+    setSelectedStudentId, 
+    selectedJobId: activeJobId, 
+    setSelectedJobId 
+  } = useAnalysis();
+
   const [applications, setApplications] = useState([]);
   const [students, setStudents] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -36,8 +45,8 @@ export default function Applications() {
 
   // Create Application Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState(user?.id || "");
-  const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedStudentId, setModalStudentId] = useState(activeStudentId || user?.id || "");
+  const [selectedJobId, setModalJobId] = useState(activeJobId || "");
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState(null);
 
@@ -68,9 +77,9 @@ export default function Applications() {
       const defStudent = studentsList?.some(s => s.id === selectedStudentId)
         ? selectedStudentId
         : (studentsList?.[0]?.id || user?.id || "");
-      setSelectedStudentId(defStudent);
+      setModalStudentId(defStudent);
 
-      if (jobsList?.length > 0 && !selectedJobId) setSelectedJobId(jobsList[0].id);
+      if (jobsList?.length > 0 && !selectedJobId) setModalJobId(jobsList[0].id);
     } catch (err) {
       setError(err.message || "Failed to load application records");
     } finally {
@@ -196,9 +205,12 @@ export default function Applications() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">
-                        {app.matchPercentage}% Match
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <MatchScoreGauge score={app.matchPercent ?? app.matchPercentage ?? 0} size="sm" showLabel={false} />
+                        <span className="font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg whitespace-nowrap">
+                          {app.matchPercent ?? app.matchPercentage ?? 0}% Match
+                        </span>
+                      </div>
                     </td>
 
                     <td className="px-6 py-4 text-slate-500">
@@ -213,7 +225,11 @@ export default function Applications() {
 
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => navigate("skill-gap", { studentId: app.studentId, jobId: app.jobId })}
+                        onClick={() => {
+                          if (app.studentId) setSelectedStudentId(app.studentId);
+                          if (app.jobId) setSelectedJobId(app.jobId);
+                          navigate("skill-gap", { studentId: app.studentId, jobId: app.jobId });
+                        }}
                         className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-bold text-xs transition-colors"
                       >
                         Inspect Gap
