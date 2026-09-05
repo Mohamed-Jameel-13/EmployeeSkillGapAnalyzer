@@ -17,10 +17,12 @@ import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import { useRouter } from "../routes/Router";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getStudents } from "../api/students";
 
 export default function StudentList() {
   const { navigate } = useRouter();
+  const { setSelectedStudentId } = useAnalysis();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -150,7 +152,10 @@ export default function StudentList() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => navigate("student-profile", { studentId: s.id })}
+                          onClick={() => {
+                            setSelectedStudentId(s.id);
+                            navigate("student-profile", { studentId: s.id });
+                          }}
                           className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors flex items-center gap-1"
                           title="View Profile"
                         >
@@ -159,7 +164,10 @@ export default function StudentList() {
                         </button>
 
                         <button
-                          onClick={() => navigate("student-profile", { studentId: s.id, openAddSkill: "true" })}
+                          onClick={() => {
+                            setSelectedStudentId(s.id);
+                            navigate("student-profile", { studentId: s.id, openAddSkill: "true" });
+                          }}
                           className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors flex items-center gap-1"
                           title="Manage Skills"
                         >
@@ -168,7 +176,10 @@ export default function StudentList() {
                         </button>
 
                         <button
-                          onClick={() => navigate("skill-gap", { studentId: s.id })}
+                          onClick={() => {
+                            setSelectedStudentId(s.id);
+                            navigate("skill-gap", { studentId: s.id });
+                          }}
                           className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs"
                           title="Analyze Skill Gap"
                         >

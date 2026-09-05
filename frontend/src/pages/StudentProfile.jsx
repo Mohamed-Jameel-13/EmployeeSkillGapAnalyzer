@@ -18,13 +18,15 @@ import ProgressBar from "../components/ProgressBar";
 import LoadingState from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import { useRouter } from "../routes/Router";
+import { useAnalysis } from "../context/AnalysisContext";
 import { getStudentById, getStudentSkills, addOrUpdateStudentSkill } from "../api/students";
 import { getSkills } from "../api/skills";
 import { PROFICIENCY_LEVELS, isValidProficiency } from "../utils/proficiency";
 
 export default function StudentProfile() {
   const { params, navigate } = useRouter();
-  const studentId = params.studentId || 101;
+  const { setSelectedStudentId, invalidateStudentCache } = useAnalysis();
+  const studentId = parseInt(params.studentId || 101, 10);
 
   const [student, setStudent] = useState(null);
   const [skills, setSkills] = useState([]);
@@ -91,6 +93,7 @@ export default function StudentProfile() {
       });
 
       setSkills(updatedSkills);
+      invalidateStudentCache(studentId);
       setIsModalOpen(false);
     } catch (err) {
       setSkillFormError(err.message || "Failed to save skill");
@@ -149,7 +152,10 @@ export default function StudentProfile() {
             variant="primary"
             size="md"
             icon={Sparkles}
-            onClick={() => navigate("skill-gap", { studentId: student.id })}
+            onClick={() => {
+              setSelectedStudentId(student.id);
+              navigate("skill-gap", { studentId: student.id });
+            }}
           >
             Analyze Skill Gap
           </Button>

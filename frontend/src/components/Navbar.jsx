@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import { useRouter } from "../routes/Router";
 import { useAuth } from "../context/AuthContext";
+import { useAnalysis } from "../context/AnalysisContext";
 
 export default function Navbar() {
   const { currentRoute, navigate } = useRouter();
   const { user, logout } = useAuth();
+  const { selectedStudentId, selectedJobId } = useAnalysis();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -30,7 +32,11 @@ export default function Navbar() {
   ];
 
   const handleNav = (id) => {
-    navigate(id);
+    if (id === "skill-gap" || id === "recommendations") {
+      navigate(id, { studentId: selectedStudentId, jobId: selectedJobId });
+    } else {
+      navigate(id);
+    }
     setMobileMenuOpen(false);
   };
 

@@ -37,9 +37,15 @@ export function RouterProvider({ children }) {
     else if (route === "student-profile" && params.studentId) hashPath = `/students/${params.studentId}`;
     else if (route === "job-details" && params.jobId) hashPath = `/jobs/${params.jobId}`;
 
+    const isPathParam = (k) => {
+      if (k === "studentId" && (route === "student-profile" || route === "add-student")) return true;
+      if (k === "jobId" && route === "job-details") return true;
+      return false;
+    };
+
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
-      if (k !== "studentId" && k !== "jobId" && v !== undefined && v !== null) {
+      if (!isPathParam(k) && v !== undefined && v !== null) {
         queryParams.set(k, v);
       }
     });

@@ -21,18 +21,30 @@ import { getDashboardStats } from "../api/dashboard";
 
 export default function Dashboard() {
   const { navigate } = useRouter();
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem("skillbridge_dashboard_stats");
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!stats);
   const [error, setError] = useState(null);
 
   const fetchStats = async () => {
-    setLoading(true);
+    if (!stats) setLoading(true);
     setError(null);
     try {
       const data = await getDashboardStats();
-      setStats(data);
+      if (data) {
+        setStats(data);
+        localStorage.setItem("skillbridge_dashboard_stats", JSON.stringify(data));
+      }
     } catch (err) {
-      setError(err.message || "Failed to load dashboard statistics");
+      if (!stats) {
+        setError(err.message || "Failed to load dashboard statistics");
+      }
     } finally {
       setLoading(false);
     }
